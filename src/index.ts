@@ -23,9 +23,14 @@ export default {
     };
 
     if (count > 1) {
-      const encodedImages = (response as Uint8Array[]).map((img) =>
-        `data:image/png;base64,${Buffer.from(img).toString("base64")}`
-      );
+      const encodedImages = (response as Uint8Array[]).map((img) => {
+        let binary = "";
+        for (let i = 0; i < img.length; i++) {
+          binary += String.fromCharCode(img[i]);
+        }
+        return `data:image/png;base64,${btoa(binary)}`;
+      });
+
       return new Response(JSON.stringify(encodedImages), { headers });
     }
 
