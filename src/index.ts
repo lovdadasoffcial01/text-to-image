@@ -1,3 +1,7 @@
+export interface Env {
+  AI: any;
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -18,10 +22,9 @@ export default {
       "content-type": count === 1 ? "image/png" : "application/json",
     };
 
-    // If multiple images, return as base64-encoded JSON
     if (count > 1) {
-      const encodedImages = response.map((img) =>
-        `data:image/png;base64,${btoa(String.fromCharCode(...img))}`
+      const encodedImages = (response as Uint8Array[]).map((img) =>
+        `data:image/png;base64,${Buffer.from(img).toString("base64")}`
       );
       return new Response(JSON.stringify(encodedImages), { headers });
     }
