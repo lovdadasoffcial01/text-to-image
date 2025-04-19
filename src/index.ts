@@ -3,37 +3,41 @@ export interface Env {
 }
 
 export default {
-  async fetch(request, env) {
-    const url = new URL(request.url);
-    const prompt = url.searchParams.get("prompt") || "cyberpunk cat";
-    const count = parseInt(url.searchParams.get("count") || "1");
+  async fetch(request: Request, env: Env): Promise<Response> {
+    try {
+      const url = new URL(request.url);
+      const prompt = url.searchParams.get("prompt"); // Users provide their own prompt
+      if (!prompt) {
+        throw new Error("Prompt parameter is required.");
+      }
 
-    const inputs = {
-      prompt,
-      num_images: count,
-    };
+      const count = Math.max(1, Math.min(parseInt(url.searchParams.get("count") || "1"), 10)); // Limit images per request
 
-    const response = await env.AI.run(
-      "@cf/stabilityai/stable-diffusion-xl-base-1.0",
-      inputs
-    );
+      const inputs = {
+        prompt,
+        num_images: count,
+      };
 
-    const headers = {
-      "content-type": count === 1 ? "image/png" : "application/json",
-    };
+      const response = await env.AI.run("@cf/stabilityai/stable-diffusion-xl-base-1.0", inputs);
 
-    if (count > 1) {
-      const encodedImages = (response as Uint8Array[]).map((img) => {
-        let binary = "";
-        for (let i = 0; i < img.length; i++) {
-          binary += String.fromCharCode(img[i]);
-        }
-        return `data:image/png;base64,${btoa(binary)}`;
+      if (!response || !Array.isArray(response) || response.length === 0) {
+        throw new Error("Invalid response from AI model.");
+      }
+
+      const headers = {
+        "Content-Type": "application/json",
+      };
+
+      const encodedImages = response.map((img: Uint8Array) => {
+        return `data:image/png;base64,${Buffer.from(img).toString("base64")}`;
       });
 
-      return new Response(JSON.stringify(encodedImages), { headers });
+      return new Response(JSON.stringify({ prompt, images: encodedImages }), { headers });
+    } catch (error) {
+      return new Response(JSON.stringify({ error: error.message }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      });
     }
-
-    return new Response(response, { headers });
   },
 } satisfies ExportedHandler<Env>;
